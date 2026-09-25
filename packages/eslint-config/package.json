@@ -1,0 +1,14 @@
+{
+  "name": "@climatetwin/eslint-config",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared ESLint configurations for ClimateTwin",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./react": "./react.js"
+  },
+  "peerDependencies": {
+    "eslint": ">=9.0.0"
+  }
+}
