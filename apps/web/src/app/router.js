@@ -15,6 +15,9 @@ const MsmeDetailPage = lazy(() => import('@/pages/MSMEs/MsmeDetailPage'));
 const CasesPage = lazy(() => import('@/pages/Cases/CasesPage'));
 const CaseDetailPage = lazy(() => import('@/pages/Cases/CaseDetailPage'));
 const PortfolioPage = lazy(() => import('@/pages/Portfolio/PortfolioPage'));
+const ClimateMapPage = lazy(() => import('@/pages/ClimateMap/ClimateMapPage'));
+const ModelsPage = lazy(() => import('@/pages/Models/ModelsPage'));
+const AuditPage = lazy(() => import('@/pages/Audit/AuditPage'));
 const SettingsPage = lazy(() => import('@/pages/Settings/SettingsPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFound/NotFoundPage'));
 function S({ children }) {
@@ -77,7 +80,23 @@ export const router = createBrowserRouter([
                         element: _jsx(S, { children: _jsx(PortfolioPage, {}) }),
                     },
                     {
+                        path: '/climate-map',
+                        element: _jsx(S, { children: _jsx(ClimateMapPage, {}) }),
+                    },
+                    {
+                        path: '/models',
+                        element: _jsx(S, { children: _jsx(ModelsPage, {}) }),
+                    },
+                    {
+                        path: '/audit',
+                        element: _jsx(S, { children: _jsx(AuditPage, {}) }),
+                    },
+                    {
                         path: '/settings',
+                        element: _jsx(S, { children: _jsx(SettingsPage, {}) }),
+                    },
+                    {
+                        path: '/impact-settings',
                         element: _jsx(S, { children: _jsx(SettingsPage, {}) }),
                     },
                 ],
