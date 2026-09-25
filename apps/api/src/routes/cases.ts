@@ -121,52 +121,62 @@ casesRouter.get('/:id', (req: Request, res: Response) => {
 })
 
 casesRouter.post('/', (req: Request, res: Response) => {
-  const {
-    msmeName,
-    loanAmount,
-    tenorMonths,
-    purpose,
-    sector,
-    cviScore,
-    gvsScore,
-    baselineDscr,
-    officer,
-  } = req.body
+  try {
+    const {
+      msmeName,
+      loanAmount,
+      tenorMonths,
+      purpose,
+      cviScore,
+      gvsScore,
+      baselineDscr,
+      officer,
+    } = req.body || {}
 
-  const nextIdNum = mockCases.length + 1
-  const id = `case-00${nextIdNum}`
-  const caseNumber = `LN-2026-0${930 + nextIdNum}`
+    const nextIdNum = mockCases.length + 1
+    const id = `case-00${nextIdNum}`
+    const caseNumber = `LN-2026-0${930 + nextIdNum}`
 
-  const cvi = Number(cviScore) || 36
-  const gvs = Number(gvsScore) || 80
+    const cvi = Number(cviScore) || 36
+    const gvs = Number(gvsScore) || 80
+    const amt = Number(loanAmount) || 4000000
+    const tenor = Number(tenorMonths) || 60
+    const dscr = Number(baselineDscr) || 1.75
 
-  const newCase: LoanCaseRecord = {
-    id,
-    caseNumber,
-    msmeId: `msme-00${nextIdNum}`,
-    msmeName: msmeName || 'New MSME Enterprise',
-    loanAmount: Number(loanAmount) || 4000000,
-    tenorMonths: Number(tenorMonths) || 60,
-    interestRate: gvs >= 75 ? 0.0865 : 0.0900,
-    purpose: purpose || 'Rooftop Solar & Energy Efficiency Retrofit',
-    status: 'UNDER_REVIEW',
-    cviScore: cvi,
-    cviBand: cvi <= 30 ? 'LOW' : cvi <= 60 ? 'MODERATE' : 'HIGH',
-    gvsScore: gvs,
-    gvsBand: gvs >= 85 ? 'EXEMPLARY' : gvs >= 70 ? 'HIGH' : 'MODERATE',
-    baselineDscr: Number(baselineDscr) || 1.75,
-    postProjectDscr: Math.round(((Number(baselineDscr) || 1.75) + 0.35) * 100) / 100,
-    projectIrr: 0.225,
-    annualCo2AvoidedTons: Math.round(((Number(loanAmount) || 4000000) / 50000) * 10) / 10,
-    officer: officer || 'Rohan Sharma',
-    date: new Date().toISOString().split('T')[0] || '2026-09-25',
+    const newCase: LoanCaseRecord = {
+      id,
+      caseNumber,
+      msmeId: `msme-00${nextIdNum}`,
+      msmeName: msmeName || 'New MSME Enterprise',
+      loanAmount: amt,
+      tenorMonths: tenor,
+      interestRate: gvs >= 75 ? 0.0865 : 0.0900,
+      purpose: purpose || 'Rooftop Solar & Energy Efficiency Retrofit',
+      status: 'UNDER_REVIEW',
+      cviScore: cvi,
+      cviBand: cvi <= 30 ? 'LOW' : cvi <= 60 ? 'MODERATE' : 'HIGH',
+      gvsScore: gvs,
+      gvsBand: gvs >= 85 ? 'EXEMPLARY' : gvs >= 70 ? 'HIGH' : 'MODERATE',
+      baselineDscr: dscr,
+      postProjectDscr: Math.round((dscr + 0.35) * 100) / 100,
+      projectIrr: 0.225,
+      annualCo2AvoidedTons: Math.round((amt / 50000) * 10) / 10,
+      officer: officer || 'Rohan Sharma',
+      date: new Date().toISOString().substring(0, 10),
+    }
+
+    mockCases.unshift(newCase)
+
+    res.status(201).json({
+      success: true,
+      data: newCase,
+      message: 'Loan case created and queued for underwriting analysis',
+    })
+  } catch (error: any) {
+    console.error('Error creating case:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create case',
+    })
   }
-
-  mockCases.unshift(newCase)
-
-  res.status(201).json({
-    success: true,
-    data: newCase,
-    message: 'Loan case created and queued for underwriting analysis',
-  })
 })
