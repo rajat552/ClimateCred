@@ -1,0 +1,6 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { Link } from 'react-router-dom';
+export default function NotFoundPage() {
+    return (_jsx("div", { className: "min-h-screen flex items-center justify-center bg-slate-950 p-6 text-center", children: _jsxs("div", { className: "max-w-md space-y-4", children: [_jsx("div", { className: "w-16 h-16 mx-auto rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-brand-400", children: _jsx("span", { className: "material-symbols-outlined text-3xl", children: "error_outline" }) }), _jsx("h1", { className: "text-3xl font-bold text-white tracking-tight", children: "404" }), _jsx("p", { className: "text-sm text-slate-400", children: "The requested intelligence report or page could not be located in ClimateTwin." }), _jsx("div", { children: _jsxs(Link, { to: "/dashboard", className: "inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-lg shadow-lg shadow-brand-600/20 transition-all", children: [_jsx("span", { className: "material-symbols-outlined text-sm", children: "arrow_back" }), "Return to Portfolio Dashboard"] }) })] }) }));
+}
+//# sourceMappingURL=NotFoundPage.js.map

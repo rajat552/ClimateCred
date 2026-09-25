@@ -1,0 +1,240 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   CLIMATETWIN — GLOBAL STYLES
+   ============================================ */
+
+@layer base {
+  :root {
+    /* Brand core */
+    --brand-primary: #0F9D72;
+    --brand-primary-dark: #096850;
+    --brand-secondary: #1E3A5F;
+    
+    /* CVI risk color ramp */
+    --cvi-very-low: #10B981;
+    --cvi-low: #84CC16;
+    --cvi-moderate: #F59E0B;
+    --cvi-high: #F97316;
+    --cvi-very-high: #EF4444;
+    
+    /* Light mode surfaces */
+    --bg-primary: #F8FAFC;
+    --bg-secondary: #F1F5F9;
+    --surface: #FFFFFF;
+    --border: #E2E8F0;
+    --border-light: #F1F5F9;
+  }
+  
+  .dark {
+    --bg-primary: #0A0F1C;
+    --bg-secondary: #111827;
+    --surface: #1F2937;
+    --border: #374151;
+    --border-light: #1F2937;
+  }
+
+  * {
+    border-color: var(--border, #374151);
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-slate-950 text-slate-100 font-sans;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded-full;
+  }
+}
+
+@layer components {
+  /* ---- Glass Card ---- */
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl;
+  }
+  
+  .glass-card-solid {
+    @apply bg-slate-900 border border-slate-800 rounded-2xl;
+  }
+
+  /* ---- Score Gauge ---- */
+  .score-gauge-container {
+    @apply relative flex items-center justify-center;
+  }
+  
+  .score-gauge-text {
+    @apply absolute text-center;
+  }
+
+  /* ---- Risk Badge ---- */
+  .risk-badge-very-high {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+  .risk-badge-high {
+    @apply bg-orange-500/20 text-orange-400 border border-orange-500/30;
+  }
+  .risk-badge-moderate {
+    @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+  }
+  .risk-badge-low {
+    @apply bg-green-500/20 text-green-400 border border-green-500/30;
+  }
+  .risk-badge-very-low {
+    @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30;
+  }
+
+  /* ---- Status Badge ---- */
+  .status-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+
+  /* ---- Navigation ---- */
+  .nav-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200;
+  }
+  .nav-link.active {
+    @apply bg-brand-500/10 text-brand-400 border border-brand-500/20;
+  }
+
+  /* ---- KPI Card ---- */
+  .kpi-card {
+    @apply p-5 rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm
+           hover:border-slate-700 transition-all duration-200 hover:-translate-y-0.5;
+  }
+
+  /* ---- Evidence Status ---- */
+  .evidence-verified {
+    @apply text-emerald-400 bg-emerald-500/10 border border-emerald-500/20;
+  }
+  .evidence-pending {
+    @apply text-yellow-400 bg-yellow-500/10 border border-yellow-500/20;
+  }
+  .evidence-rejected {
+    @apply text-red-400 bg-red-500/10 border border-red-500/20;
+  }
+  .evidence-required {
+    @apply text-orange-400 bg-orange-500/10 border border-orange-500/20 animate-pulse;
+  }
+
+  /* ---- Form Inputs ---- */
+  .input-field {
+    @apply w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 text-sm
+           placeholder:text-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500
+           transition-all duration-200;
+  }
+  
+  .input-label {
+    @apply block text-sm font-medium text-slate-300 mb-1.5;
+  }
+
+  /* ---- Buttons ---- */
+  .btn-primary {
+    @apply px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-xl
+           transition-all duration-200 hover:shadow-glow-green active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl
+           transition-all duration-200 active:scale-[0.98];
+  }
+  
+  .btn-ghost {
+    @apply px-6 py-3 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white
+           font-semibold rounded-xl transition-all duration-200;
+  }
+  
+  .btn-danger {
+    @apply px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30
+           font-semibold rounded-xl transition-all duration-200;
+  }
+
+  /* ---- Section Title ---- */
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3;
+  }
+
+  /* ---- Loading ---- */
+  .skeleton {
+    @apply animate-pulse bg-slate-800 rounded-lg;
+  }
+
+  /* ---- Table ---- */
+  .data-table {
+    @apply w-full text-sm;
+  }
+  .data-table th {
+    @apply text-left text-xs font-semibold uppercase tracking-wider text-slate-500 pb-3 border-b border-slate-800;
+  }
+  .data-table td {
+    @apply py-3 border-b border-slate-800/50 text-slate-300;
+  }
+  .data-table tr:hover td {
+    @apply bg-slate-800/30 text-white;
+  }
+  .data-table tr:last-child td {
+    @apply border-0;
+  }
+}
+
+@layer utilities {
+  /* Gradient text */
+  .text-gradient-brand {
+    @apply bg-gradient-to-r from-brand-400 to-brand-300 bg-clip-text text-transparent;
+  }
+  .text-gradient-climate {
+    @apply bg-gradient-to-r from-blue-400 to-brand-400 bg-clip-text text-transparent;
+  }
+  
+  /* Glassmorphism */
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  /* Score bar */
+  .score-bar-track {
+    @apply h-2 bg-slate-800 rounded-full overflow-hidden;
+  }
+  .score-bar-fill {
+    @apply h-full rounded-full transition-all duration-700 ease-out;
+  }
+
+  /* Stagger children animations */
+  .stagger > * {
+    @apply animate-slide-up;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 60ms; }
+  .stagger > *:nth-child(3) { animation-delay: 120ms; }
+  .stagger > *:nth-child(4) { animation-delay: 180ms; }
+  .stagger > *:nth-child(5) { animation-delay: 240ms; }
+  .stagger > *:nth-child(6) { animation-delay: 300ms; }
+  .stagger > *:nth-child(7) { animation-delay: 360ms; }
+  .stagger > *:nth-child(8) { animation-delay: 420ms; }
+  
+  /* Hover lift */
+  .hover-lift {
+    @apply hover:-translate-y-0.5 transition-transform duration-200;
+  }
+}
