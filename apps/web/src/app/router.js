@@ -1,5 +1,5 @@
 import { jsx as _jsx } from "react/jsx-runtime";
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { RootLayout } from '@/components/layout/RootLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -7,6 +7,7 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 // Pages — lazily imported for code splitting
 import { lazy, Suspense } from 'react';
 import { PageLoader } from '@/components/common/PageLoader';
+const LandingPage = lazy(() => import('@/pages/Landing/LandingPage'));
 const LoginPage = lazy(() => import('@/pages/Login/LoginPage'));
 const DashboardPage = lazy(() => import('@/pages/Dashboard/DashboardPage'));
 const MsmesPage = lazy(() => import('@/pages/MSMEs/MsmesPage'));
@@ -24,6 +25,15 @@ export const router = createBrowserRouter([
         element: _jsx(RootLayout, {}),
         errorElement: _jsx(ErrorBoundary, {}),
         children: [
+            // Landing Page
+            {
+                path: '/',
+                element: _jsx(S, { children: _jsx(LandingPage, {}) }),
+            },
+            {
+                path: '/landing',
+                element: _jsx(S, { children: _jsx(LandingPage, {}) }),
+            },
             // Auth routes
             {
                 element: _jsx(AuthLayout, {}),
@@ -38,10 +48,6 @@ export const router = createBrowserRouter([
             {
                 element: _jsx(DashboardLayout, {}),
                 children: [
-                    {
-                        path: '/',
-                        element: _jsx(Navigate, { to: "/dashboard", replace: true }),
-                    },
                     {
                         path: '/dashboard',
                         element: _jsx(S, { children: _jsx(DashboardPage, {}) }),

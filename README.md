@@ -1,81 +1,118 @@
-# 🌱 RuralMind AI
-### Predict • Explain • Prevent • Prosper
-> **AI-Powered Digital Financial Twin for Rural Micro Enterprises**
+# ClimateTwin
+### Predict • Explain • Underwrite • Prosper
+> **MSME Climate-Risk & Green Viability Intelligence Engine for Financial Institutions**
 
-🌐 **Live Demo:** [https://ruralmind.vercel.app](https://ruralmind.vercel.app)
-
-RuralMind AI is a state-of-the-art web application designed to help rural entrepreneurs and financial institutions (like NABARD Officers) monitor, simulate, and improve the creditworthiness and business health of micro-enterprises.
-
-The app uses machine learning and advanced financial twin modeling to translate the raw transactional data and external factors (like climate and market prices) into actionable, explainable insights.
+🌐 **Live Local Platform:** [http://localhost:3000](http://localhost:3000) • **API Gateway:** [http://localhost:3001](http://localhost:3001)
 
 ---
 
-## 🚀 Key Features
+## 🌍 Executive Summary
 
-### 1. 👥 Role-Based Portals
-*   **Entrepreneur Mode (e.g., Lakshmi Devi's Dairy Farm):** Live dashboard showing revenue, expenses, cash flow, and financial health score. Real-time updates, custom transaction logging, and access to an AI Mentor.
-*   **NABARD Officer Mode (e.g., Rajesh Kumar):** District-level overview tracking recovery rates, AI accuracy, and village-by-village risk profiles using interactive heatmaps.
-
-### 2. 🛡️ Digital Financial Twin
-*   A real-time health indicator score (0-100) calculated from financial stability, payment history, and risk mitigation strategies using linear regression.
-*   Shows live indicator status sync and health trends over time.
-
-### 3. 🔮 Real-Time What-If Scenario Simulator
-*   Allows entrepreneurs to slide parameters (milk price, rainfall, market demand, monthly expenses, active loans) to dynamically compute future profit margins, cash flow, and risk scores.
-*   Includes instant AI-generated recommendation cards explaining the outcome.
-
-### 4. 💬 AI Business Mentor & Scheme Portal
-*   Integrating Google Gemini API to offer localized support, cost reduction strategies, and eligibility match for government subsidies (e.g., Rashtriya Gokul Mission, NABARD DEDS).
-
-### 5. 🌙 Modern, Premium UX
-*   **Dark Mode Support:** Smooth custom styling transitions, persisted locally.
-*   **Toast Notifications:** Real-time feedback for transactional actions.
-*   **Slide-up Modals:** Elegant form sheets replacing default browser prompts.
-*   **Interactive Onboarding:** Survey assessing Financial Literacy, Repayment History, and Risk Mitigation to compute Day 1 health.
+**ClimateTwin** is an institutional-grade B2B SaaS platform designed for Non-Banking Financial Companies (NBFCs), commercial banks, and development finance institutions (such as SIDBI and NABARD). It empowers credit and risk officers to underwrite green loans for Micro, Small, and Medium Enterprises (MSMEs) with high confidence by pairing deterministic physical climate hazard scoring with green capex economic viability assessment.
 
 ---
 
-## 🛠️ Technology Stack
+## 🚨 The Problem
 
-*   **Frontend Core:** HTML5, Vanilla JavaScript (ES6 modules, Single Page Application Router)
-*   **Styling:** Premium Vanilla CSS variables, glassmorphism, responsive desktop sidebar layout, and custom animations
-*   **Charts:** Chart.js (Forecast line charts, Category donut charts, State-wise bar charts)
-*   **AI Integration:** Google AI Studio (Gemini Flash model)
-*   **Weather Service:** OpenWeather Map API (Climate-risk integration)
-*   **Machine Learning (ML):** Python-based training pipeline (`scikit-learn` linear regression and default risk models)
+1. **Unquantified Physical Climate Hazard**: MSMEs face severe operational disruptions and cash-flow shocks from rising heatwaves, unseasonal monsoon floods, and grid blackouts.
+2. **Underwriting Uncertainty in Green Capex**: Lenders lack standardized, deterministic models to evaluate the true payback, internal rate of return (IRR), and debt service impact of green transitions (such as rooftop solar, thermal storage, bioenergy, or precision irrigation).
+3. **Black-Box AI Skepticism**: Financial institutions cannot rely on generative LLM hallucinations for risk scoring and credit covenants.
+
+---
+
+## 💡 The Solution
+
+ClimateTwin provides an evidence-backed, transparent, dual-engine intelligence platform:
+
+1. **Climate Vulnerability Index (CVI Engine)**:
+   - Built on the **ISO 14091:2021** standard.
+   - Decomposes physical climate risk into: `(Hazard × Exposure × Sensitivity) ÷ (Adaptive Capacity × 100)`.
+   - Incorporates ECMWF ERA5 reanalysis and IMD high-resolution gridded climate data.
+
+2. **Green Viability Score (GVS Engine)**:
+   - Aligned with the **GHG Protocol** and Central Electricity Authority (CEA) grid emission baselines.
+   - Multi-criteria weighted index: Financial IRR Uplift (40%) + Carbon Mitigation (30%) + Blackout Resilience (20%) + Policy Subsidies (10%).
+
+3. **Dynamic Climate Stress-Test Simulator**:
+   - Live interactive multi-hazard sliders (+Heatwave, +Flood, +Diesel/Grid Tariff Spike) with real-time recalculation of stressed Debt Service Coverage Ratios (DSCR) against institutional covenant thresholds (1.20x minimum).
+
+4. **Credit Officer AI Underwriting Copilot**:
+   - Server-enforced, zero-client-key LLM narrative synthesizer formulating Credit Appraisal Memos (CAM).
+
+5. **Geospatial & Satellite Evidence Layer**:
+   - Sentinel-2 multi-spectral rooftop solar verification and Udyam registry validation.
+
+6. **Regulatory Compliance & Auditability**:
+   - Aligned with the Reserve Bank of India (RBI) Green Lending Framework and SEBI BRSR Core.
+   - Immutable audit logging for all appraisal modifications and sanction events.
+
+---
+
+## 🏛️ Architecture & Tech Stack
+
+```
+                               ┌────────────────────────────────┐
+                               │  Web Frontend (React 18 + TS)  │
+                               │  Tailwind CSS + Chart.js       │
+                               │  Port: 3000                    │
+                               └───────────────┬────────────────┘
+                                               │ /api
+                               ┌───────────────▼────────────────┐
+                               │   API Gateway (Express + TS)   │
+                               │   Prisma ORM + JWT Auth + RBAC │
+                               │   Port: 3001                   │
+                               └───┬───────────┬────────────┬───┘
+                                   │           │            │
+             ┌─────────────────────┘           │            └─────────────────────┐
+             ▼                                 ▼                                  ▼
+┌───────────────────────────┐     ┌───────────────────────────┐     ┌───────────────────────────┐
+│ Climate Engine (FastAPI)  │     │  AI Copilot (FastAPI)     │     │ PostgreSQL + PostGIS      │
+│ ERA5/IMD Ensemble Hazard  │     │  Appraisal Synthesis      │     │ MinIO Evidence Store      │
+│ Port: 8000                │     │  Port: 8001               │     │ Ports: 5432 / 9000        │
+└───────────────────────────┘     └───────────────────────────┘     └───────────────────────────┘
+```
 
 ---
 
 ## 📦 Getting Started
 
 ### 1. Prerequisites
-Make sure you have [Node.js](https://nodejs.org/) installed.
+- **Node.js**: `v20.0.0` or higher
+- **pnpm**: `v9.11.0` or higher (`npm install -g pnpm@9.11.0`)
+- **Python**: `3.11+` (for microservices)
+- **Docker**: Optional (for complete containerized stack)
 
-### 2. Install Dependencies
+### 2. Install Workspace Dependencies
 ```bash
-npm install
+pnpm install
 ```
 
-### 3. Configure Environment Variables
-Create a `.env` file in the root directory and configure your credentials:
-```env
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
-VITE_OPENWEATHER_API_KEY=your_openweather_api_key_here
-```
-
-### 4. Run Locally
-Start the Vite development server:
+### 3. Run Locally in Development Mode
+To start both the **Web Frontend** and **Backend API** concurrently:
 ```bash
-npm run dev
+pnpm dev
 ```
-Open **http://localhost:3000** in your browser.
+
+- **Frontend Application:** `http://localhost:3000`
+- **Backend API Gateway:** `http://localhost:3001`
+- **API Health Endpoint:** `http://localhost:3001/health`
+
+### 4. Build for Production
+```bash
+pnpm build
+```
 
 ---
 
-## 🧠 Machine Learning Engine
-The ML directory contains the Python scripts to train the regression coefficients and default risk models:
-*   `ml/train.py`: Preprocesses data, trains the scikit-learn models, and serializes the coefficients directly into `js/trained_model.js` for instant local execution.
+## 🔐 Security & RBAC Roles
+
+ClimateTwin implements institutional Role-Based Access Control:
+- **Credit Officer**: Case origination, financial twin modeling, simulation, and memo drafting.
+- **Risk Manager**: Portfolio hazard concentration analysis and covenant stress validation.
+- **Compliance / Auditor**: Immutable audit trail inspection and regulatory reporting (BRSR/TCFD).
+- **System Admin**: Scoring weights configuration, model versioning, and branch management.
 
 ---
 
-Developed with ❤️ for rural micro-entrepreneurs.
+## 📄 License
+Proprietary & Confidential — Designed for Institutional Green Financing.

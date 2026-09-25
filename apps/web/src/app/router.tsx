@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { lazy, Suspense } from 'react'
 import { PageLoader } from '@/components/common/PageLoader'
 
+const LandingPage = lazy(() => import('@/pages/Landing/LandingPage'))
 const LoginPage = lazy(() => import('@/pages/Login/LoginPage'))
 const DashboardPage = lazy(() => import('@/pages/Dashboard/DashboardPage'))
 const MsmesPage = lazy(() => import('@/pages/MSMEs/MsmesPage'))
@@ -27,6 +28,15 @@ export const router = createBrowserRouter([
     element: <RootLayout />,
     errorElement: <ErrorBoundary />,
     children: [
+      // Landing Page
+      {
+        path: '/',
+        element: <S><LandingPage /></S>,
+      },
+      {
+        path: '/landing',
+        element: <S><LandingPage /></S>,
+      },
       // Auth routes
       {
         element: <AuthLayout />,
@@ -41,10 +51,6 @@ export const router = createBrowserRouter([
       {
         element: <DashboardLayout />,
         children: [
-          {
-            path: '/',
-            element: <Navigate to="/dashboard" replace />,
-          },
           {
             path: '/dashboard',
             element: <S><DashboardPage /></S>,
