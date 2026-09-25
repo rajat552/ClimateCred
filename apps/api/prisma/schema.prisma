@@ -1,0 +1,223 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CREDIT_OFFICER
+  RISK_MANAGER
+  AUDITOR
+  ADMIN
+}
+
+enum LoanStatus {
+  DRAFT
+  UNDER_REVIEW
+  STRESS_TEST_REQUIRED
+  APPROVED
+  SANCTIONED
+  REJECTED
+}
+
+enum RiskBand {
+  LOW
+  MODERATE
+  HIGH
+  VERY_HIGH
+  CRITICAL
+}
+
+enum GreenBand {
+  POOR
+  MODERATE
+  HIGH
+  EXEMPLARY
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  branch    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  msmes     Msme[]
+}
+
+model User {
+  id             String       @id @default(uuid())
+  email          String       @unique
+  passwordHash   String
+  fullName       String
+  role           Role         @default(CREDIT_OFFICER)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  loanCases      LoanCase[]
+  auditLogs      AuditLog[]
+}
+
+model Msme {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  udyamNumber    String       @unique
+  sector         String
+  subSector      String?
+  latitude       Float
+  longitude      Float
+  district       String
+  state          String
+  annualRevenue  Float
+  ebitdaMargin   Float
+  employeeCount  Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  loanCases        LoanCase[]
+  financialTwins   FinancialTwin[]
+  climateSnapshots ClimateSnapshot[]
+}
+
+model LoanCase {
+  id             String     @id @default(uuid())
+  caseNumber     String     @unique
+  msmeId         String
+  msme           Msme       @relation(fields: [msmeId], references: [id])
+  assignedUserId String
+  assignedUser   User       @relation(fields: [assignedUserId], references: [id])
+  loanAmount     Float
+  tenorMonths    Int
+  interestRate   Float
+  purpose        String
+  status         LoanStatus @default(UNDER_REVIEW)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  financialTwin FinancialTwin?
+  greenProject  GreenProject?
+  cviSnapshots  CviSnapshot[]
+  gvsSnapshots  GvsSnapshot[]
+  scenarios     Scenario[]
+  evidences     Evidence[]
+  auditLogs     AuditLog[]
+}
+
+model FinancialTwin {
+  id           String    @id @default(uuid())
+  loanCaseId   String?   @unique
+  loanCase     LoanCase? @relation(fields: [loanCaseId], references: [id])
+  msmeId       String
+  msme         Msme      @relation(fields: [msmeId], references: [id])
+  baselineDscr Float
+  annualEbitda Float
+  existingDebt Float
+  powerCost    Float
+  fuelCost     Float
+  projectedDscr Float?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model GreenProject {
+  id                  String   @id @default(uuid())
+  loanCaseId          String   @unique
+  loanCase            LoanCase @relation(fields: [loanCaseId], references: [id])
+  technologyType      String
+  capacityKw          Float?
+  totalCapex          Float
+  expectedIrr         Float
+  paybackYears        Float
+  annualCo2AvoidedTons Float
+  subsidyEligible     Boolean  @default(false)
+  subsidyAmount       Float?   @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model ClimateSnapshot {
+  id              String   @id @default(uuid())
+  msmeId          String
+  msme            Msme     @relation(fields: [msmeId], references: [id])
+  latitude        Float
+  longitude       Float
+  heatwaveDays35C Float
+  floodRiskIndex  Float
+  cycloneRiskIndex Float
+  droughtSeverity Float
+  dataSource      String   @default("ERA5_IMD_ENSEMBLE")
+  capturedAt      DateTime @default(now())
+}
+
+model CviSnapshot {
+  id                    String   @id @default(uuid())
+  loanCaseId            String
+  loanCase              LoanCase @relation(fields: [loanCaseId], references: [id])
+  hazardScore           Float
+  exposureScore         Float
+  sensitivityScore      Float
+  adaptiveCapacityScore Float
+  cviScore              Float
+  cviBand               RiskBand
+  modelVersion          String   @default("1.2.1")
+  computedAt            DateTime @default(now())
+}
+
+model GvsSnapshot {
+  id              String    @id @default(uuid())
+  loanCaseId      String
+  loanCase        LoanCase  @relation(fields: [loanCaseId], references: [id])
+  irrScore        Float
+  carbonScore     Float
+  resilienceScore Float
+  policyScore     Float
+  gvsScore        Float
+  gvsBand         GreenBand
+  modelVersion    String    @default("1.4.0")
+  computedAt      DateTime  @default(now())
+}
+
+model Scenario {
+  id                 String   @id @default(uuid())
+  loanCaseId         String
+  loanCase           LoanCase @relation(fields: [loanCaseId], references: [id])
+  heatShockPct       Float
+  floodShockPct      Float
+  stressedDscr       Float
+  defaultProbability Float
+  covenantBreached   Boolean  @default(false)
+  createdAt          DateTime @default(now())
+}
+
+model Evidence {
+  id           String   @id @default(uuid())
+  loanCaseId   String
+  loanCase     LoanCase @relation(fields: [loanCaseId], references: [id])
+  evidenceType String
+  title        String
+  fileUrl      String
+  verified     Boolean  @default(false)
+  verifierNote String?
+  verifiedAt   DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model AuditLog {
+  id         String    @id @default(uuid())
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id])
+  loanCaseId String?
+  loanCase   LoanCase? @relation(fields: [loanCaseId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+}
