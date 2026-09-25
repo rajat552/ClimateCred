@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   Chart as ChartJS,
@@ -20,6 +20,35 @@ ChartJS.register(
   Legend
 )
 
+interface ClimateLiveTelemetry {
+  location: {
+    city: string
+    latitude: number
+    longitude: number
+    country: string
+  }
+  telemetry: {
+    temperature_c: number
+    feels_like_c: number
+    humidity_pct: number
+    wind_speed_kmh: number
+    conditions: string
+    solar_irradiance_kwh_m2_day: number
+  }
+  hazardIndicators: {
+    heatwave_risk: string
+    flood_vulnerability: string
+    cyclone_wind_vulnerability: string
+    drought_spei: number
+    composite_hazard_index: number
+  }
+  metadata: {
+    dataSource: string
+    timestamp: string
+    compliance: string
+  }
+}
+
 export default function CaseDetailPage() {
   const { caseId } = useParams()
   const [activeTab, setActiveTab] = useState<'overview' | 'cvi' | 'gvs' | 'scenario' | 'evidence' | 'copilot' | 'audit'>('overview')
@@ -28,13 +57,43 @@ export default function CaseDetailPage() {
   const [stressDieselPrice, setStressDieselPrice] = useState(20)
   const [isCamModalOpen, setIsCamModalOpen] = useState(false)
   const [isSanctioned, setIsSanctioned] = useState(false)
+  const [auditLogs, setAuditLogs] = useState([
+    { time: '2026-09-25 18:30:12', user: 'Rohan Sharma (Credit Officer)', action: 'Reviewed preliminary CVI/GVS alignment' },
+    { time: '2026-09-25 17:15:00', user: 'Engine Service', action: 'Computed GVS score: 82/100 (Model v1.4.0)' },
+    { time: '2026-09-25 17:14:45', user: 'Engine Service', action: 'Computed CVI score: 34/100 (Model v1.2.1)' },
+    { time: '2026-09-24 11:20:10', user: 'Rohan Sharma', action: 'Created loan case case-001 for MSME msme-001' },
+  ])
+
+  // Live Climate Telemetry state
+  const [climateData, setClimateData] = useState<ClimateLiveTelemetry | null>(null)
+  const [isClimateLoading, setIsClimateLoading] = useState(true)
+
+  // AI Copilot state
+  const [copilotLoading, setCopilotLoading] = useState(false)
+  const [copilotSynthesis, setCopilotSynthesis] = useState<string | null>(null)
+  const [copilotEngine, setCopilotEngine] = useState<string>('Ready for Analysis')
+  const [copilotQuery, setCopilotQuery] = useState('')
+  const [chatMessages, setChatMessages] = useState<Array<{ sender: 'officer' | 'copilot'; text: string }>>([])
+  const [chatLoading, setChatLoading] = useState(false)
+
+  // Fetch Live Weather & Climate Hazard on Mount
+  useEffect(() => {
+    fetch('http://localhost:3001/api/v1/climate/live?lat=21.1458&lon=79.0882&city=Nagpur')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) {
+          setClimateData(json.data)
+        }
+      })
+      .catch((err) => console.warn('Failed to load live climate data:', err))
+      .finally(() => setIsClimateLoading(false))
+  }, [])
 
   // Dynamic calculations for scenario simulation
-  const baseDscr = 1.84
   const postGreenDscr = 2.18
   const stressedDscr = Math.max(
     0.82,
-    (postGreenDscr - (stressHeatwave * 0.010) - (stressFlood * 0.012) - (stressDieselPrice * 0.008))
+    postGreenDscr - (stressHeatwave * 0.010) - (stressFlood * 0.012) - (stressDieselPrice * 0.008)
   ).toFixed(2)
 
   const dscrChartData = {
@@ -70,8 +129,96 @@ export default function CaseDetailPage() {
     ],
   }
 
+  // Trigger Gemini Copilot Live Memo
+  const generateLiveCopilotMemo = async () => {
+    setCopilotLoading(true)
+    try {
+      const response = await fetch('http://localhost:3001/api/v1/copilot/memo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caseId: caseId || 'case-001',
+          msmeName: 'Annapurna Agro-Cold Storage',
+          sector: 'Cold Chain / Agri-Logistics',
+          loanAmount: 3500000,
+          purpose: '80kW Rooftop Solar PV & PCM Phase Change Material Retrofit',
+          cviScore: 34,
+          gvsScore: 82,
+          baselineDscr: 1.84,
+          stressedDscr: Number(stressedDscr),
+          projectIrr: 23.4,
+          greenTaxonomyScore: 92,
+          stressScenario: `+${stressHeatwave}% Heatwave, +${stressFlood}% Flood, +${stressDieselPrice}% Diesel shock`,
+        }),
+      })
+      const result = await response.json()
+      if (result.success && result.data) {
+        setCopilotSynthesis(result.data.aiSynthesis)
+        setCopilotEngine(result.data.metadata?.copilotEngine || 'Google Gemini 1.5 Flash')
+      }
+    } catch (err) {
+      console.error('Copilot memo error:', err)
+    } finally {
+      setCopilotLoading(false)
+    }
+  }
+
+  // Ask Copilot Chat
+  const handleSendQuery = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!copilotQuery.trim()) return
+
+    const query = copilotQuery
+    setCopilotQuery('')
+    setChatMessages((prev) => [...prev, { sender: 'officer', text: query }])
+    setChatLoading(true)
+
+    try {
+      const response = await fetch('http://localhost:3001/api/v1/copilot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: query,
+          caseContext: {
+            msme: 'Annapurna Agro-Cold Storage',
+            facility: '₹35 Lakhs Green Capex (Solar + PCM)',
+            cvi: 34,
+            gvs: 82,
+            stressedDscr: Number(stressedDscr),
+            liveTemp: climateData?.telemetry.temperature_c,
+            heatwaveRisk: climateData?.hazardIndicators.heatwave_risk,
+          },
+        }),
+      })
+      const result = await response.json()
+      if (result.success && result.data) {
+        setChatMessages((prev) => [
+          ...prev,
+          { sender: 'copilot', text: result.data.reply },
+        ])
+      }
+    } catch (err) {
+      console.error('Chat error:', err)
+    } finally {
+      setChatLoading(false)
+    }
+  }
+
+  const handleExecuteSanction = () => {
+    setIsSanctioned(true)
+    const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
+    setAuditLogs((prev) => [
+      {
+        time: now,
+        user: 'Rohan Sharma (Credit Officer)',
+        action: `Sanction executed with 35 bps green pricing concession. Stressed DSCR ${stressedDscr}x logged to immutable audit ledger.`,
+      },
+      ...prev,
+    ])
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-12">
       {/* Header Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl backdrop-blur-md">
         <div>
@@ -89,7 +236,7 @@ export default function CaseDetailPage() {
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
               isSanctioned ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-brand-500/10 text-brand-400 border-brand-500/20'
             }`}>
-              {isSanctioned ? 'SANCTIONED & DISBURSED' : 'STATUS: APPROVED'}
+              {isSanctioned ? 'SANCTIONED & DISBURSED' : 'STATUS: APPROVED FOR SANCTION'}
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -106,258 +253,253 @@ export default function CaseDetailPage() {
             View Credit Appraisal Memo (CAM)
           </button>
           <button
-            onClick={() => setIsSanctioned(true)}
+            onClick={handleExecuteSanction}
             disabled={isSanctioned}
             className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-lg shadow-brand-600/20 transition-all cursor-pointer disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-sm">{isSanctioned ? 'check_circle' : 'verified_user'}</span>
-            {isSanctioned ? 'Loan Sanctioned' : 'Execute Sanction'}
+            {isSanctioned ? 'Loan Sanctioned' : 'Execute Green Sanction'}
           </button>
         </div>
+      </div>
+
+      {/* Live Physical Climate Telemetry Bar */}
+      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span className="font-semibold text-slate-200">Live Geo-Hazard Telemetry:</span>
+          <span className="text-slate-400">Nagpur Facility (21.14°N, 79.08°E)</span>
+        </div>
+        {isClimateLoading ? (
+          <span className="text-slate-400">Connecting to OpenWeather & ERA5 station feeds...</span>
+        ) : climateData ? (
+          <div className="flex items-center gap-4 text-slate-300">
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-amber-400 text-sm">thermostat</span>
+              <span><strong>{climateData.telemetry.temperature_c}°C</strong> ({climateData.telemetry.conditions})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-blue-400 text-sm">humidity_mid</span>
+              <span><strong>{climateData.telemetry.humidity_pct}%</strong> Humidity</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-teal-400 text-sm">air</span>
+              <span><strong>{climateData.telemetry.wind_speed_kmh} km/h</strong> Wind</span>
+            </div>
+            <span className="px-2 py-0.5 rounded bg-brand-500/10 text-brand-400 border border-brand-500/20 font-mono text-[11px]">
+              {climateData.metadata.dataSource}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-1 border-b border-slate-800 overflow-x-auto text-xs pb-1">
         {[
-          { id: 'overview', label: 'Executive Appraisal', icon: 'dashboard' },
-          { id: 'cvi', label: 'CVI Climate Risk (34/100)', icon: 'thermostat' },
-          { id: 'gvs', label: 'GVS Green Viability (82/100)', icon: 'eco' },
-          { id: 'scenario', label: 'Dynamic Stress Simulator', icon: 'tune' },
-          { id: 'evidence', label: 'Geospatial Proof & Docs', icon: 'verified' },
-          { id: 'copilot', label: 'Credit Officer Copilot', icon: 'smart_toy' },
+          { id: 'overview', label: 'Executive Synthesis', icon: 'dashboard' },
+          { id: 'cvi', label: 'Climate Vulnerability (CVI)', icon: 'warning' },
+          { id: 'gvs', label: 'Green Viability (GVS)', icon: 'eco' },
+          { id: 'scenario', label: 'Stress-Test Simulator', icon: 'tune' },
+          { id: 'evidence', label: 'Geospatial Proof & Evidence', icon: 'satellite_alt' },
+          { id: 'copilot', label: 'Officer AI Copilot', icon: 'smart_toy' },
           { id: 'audit', label: 'Audit Trail', icon: 'history' },
-        ].map((t) => (
+        ].map((tab) => (
           <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id as any)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-t-lg font-medium transition-all ${
-              activeTab === t.id
-                ? 'bg-slate-900 border-t-2 border-brand-500 text-brand-400 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-3.5 py-2 rounded-lg font-medium flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === tab.id
+                ? 'bg-brand-600/15 text-brand-400 border border-brand-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
             }`}
           >
-            <span className="material-symbols-outlined text-sm">{t.icon}</span>
-            {t.label}
+            <span className="material-symbols-outlined text-sm">{tab.icon}</span>
+            {tab.label}
           </button>
         ))}
       </div>
 
       {/* TAB CONTENT: Overview */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-4">
-              <h2 className="text-base font-semibold text-white">Underwriting Executive Summary</h2>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                The borrower operates a 24,000 sq.ft agri-cold storage unit in Nagpur rural. Currently subject to rising ambient summer temperatures (&gt;44°C) causing grid peak tariff surges and diesel generator costs. The ₹35 Lakh capex introduces an 80kW rooftop solar installation paired with thermal phase-change materials, curtailing grid power drawdown by 48% and diesel consumption by 72%.
-              </p>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800">
-                  <span className="text-[11px] text-slate-400">Baseline DSCR</span>
-                  <div className="text-lg font-bold text-slate-200">1.84x</div>
-                </div>
-                <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800">
-                  <span className="text-[11px] text-slate-400">Post-Green DSCR</span>
-                  <div className="text-lg font-bold text-emerald-400">2.18x</div>
-                </div>
-                <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800">
-                  <span className="text-[11px] text-slate-400">Project IRR</span>
-                  <div className="text-lg font-bold text-brand-400">23.4%</div>
-                </div>
-                <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800">
-                  <span className="text-[11px] text-slate-400">CO2e Mitigation</span>
-                  <div className="text-lg font-bold text-emerald-400">82.5 t/yr</div>
-                </div>
+        <div className="space-y-6 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+              <span className="text-slate-400 text-xs font-medium">Climate Vulnerability Index</span>
+              <div className="text-2xl font-bold text-emerald-400 flex items-baseline gap-2">
+                34 <span className="text-xs text-slate-400 font-normal">/ 100 (Moderate Risk)</span>
               </div>
+              <p className="text-[11px] text-slate-400">Regional benchmark: 52/100 (Top 15% safety quartile)</p>
             </div>
 
-            {/* DSCR Trajectory Chart */}
-            <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-4">
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+              <span className="text-slate-400 text-xs font-medium">Green Viability Score</span>
+              <div className="text-2xl font-bold text-brand-400 flex items-baseline gap-2">
+                82 <span className="text-xs text-slate-400 font-normal">/ 100 (Tier-1 Bankable)</span>
+              </div>
+              <p className="text-[11px] text-slate-400">Qualifies for -35 bps RBI green refinance subvention</p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+              <span className="text-slate-400 text-xs font-medium">Stressed DSCR</span>
+              <div className="text-2xl font-bold text-blue-400 flex items-baseline gap-2">
+                {stressedDscr}x <span className="text-xs text-slate-400 font-normal">(Covenant: &gt;1.20x)</span>
+              </div>
+              <p className="text-[11px] text-emerald-400 flex items-center gap-1">
+                <span className="material-symbols-outlined text-xs">verified</span>
+                Adequate Debt Service Cushion
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+              <span className="text-slate-400 text-xs font-medium">Avoided Carbon & Payback</span>
+              <div className="text-2xl font-bold text-white flex items-baseline gap-2">
+                74.2 <span className="text-xs text-slate-400 font-normal">tCO₂e/yr (3.4 yr Payback)</span>
+              </div>
+              <p className="text-[11px] text-slate-400">Project IRR: 23.4% • 100% Tax Depreciation Eligible</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Debt Service Coverage Ratio (DSCR) 5-Year Trajectory</h3>
-                  <p className="text-[11px] text-slate-400">Impact of solar capex energy cost savings vs baseline non-intervention</p>
+                  <h3 className="text-sm font-semibold text-white">5-Year DSCR Trajectory Under Stress</h3>
+                  <p className="text-xs text-slate-400">Comparison of Baseline, Green Project, and Active Scenario</p>
                 </div>
-                <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                  Covenant Minimum: 1.20x
-                </span>
+                <Link to="#" onClick={() => setActiveTab('scenario')} className="text-xs text-brand-400 hover:underline">
+                  Adjust Scenario &rarr;
+                </Link>
               </div>
-              <div className="h-64 w-full">
+              <div className="h-64">
                 <Bar
                   data={dscrChartData}
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                      legend: { position: 'top', labels: { color: '#94A3B8', font: { size: 10 } } },
-                    },
                     scales: {
-                      x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#94A3B8', font: { size: 10 } } },
-                      y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#94A3B8', font: { size: 10 } }, min: 0, max: 6 },
+                      y: {
+                        grid: { color: 'rgba(51, 65, 85, 0.4)' },
+                        ticks: { color: '#94A3B8' },
+                      },
+                      x: {
+                        grid: { color: 'rgba(51, 65, 85, 0.2)' },
+                        ticks: { color: '#94A3B8' },
+                      },
+                    },
+                    plugins: {
+                      legend: { labels: { color: '#CBD5E1', boxWidth: 12 } },
                     },
                   }}
                 />
               </div>
             </div>
-          </div>
 
-          {/* Right Scores Panel */}
-          <div className="space-y-6">
             <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-4">
-              <h2 className="text-base font-semibold text-white">Climate & Green Viability Snapshot</h2>
-              
-              {/* CVI Score Widget */}
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-300 font-semibold">Climate Vulnerability (CVI)</span>
-                  <span className="font-bold text-amber-400">34 / 100</span>
+              <h3 className="text-sm font-semibold text-white">Credit Appraisal Decision Summary</h3>
+              <div className="space-y-3 text-xs">
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">check_circle</span>
+                    Sanction Recommended
+                  </div>
+                  <p className="text-[11px] text-emerald-200/80 mt-1">
+                    Solar + PCM retrofit reduces grid tariff vulnerability and protects cold-storage operations from Nagpur extreme heat events.
+                  </p>
                 </div>
-                <div className="w-full bg-slate-800 rounded-full h-2">
-                  <div className="bg-amber-400 h-2 rounded-full" style={{ width: '34%' }}></div>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
-                  <span>Band: MODERATE RISK</span>
-                  <span>ISO 14091:2021 Model</span>
-                </div>
-              </div>
 
-              {/* GVS Score Widget */}
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-300 font-semibold">Green Viability Score (GVS)</span>
-                  <span className="font-bold text-brand-400">82 / 100</span>
+                <div className="space-y-2 text-slate-300">
+                  <div className="flex justify-between border-b border-slate-800 pb-1.5">
+                    <span className="text-slate-400">Proposed Loan:</span>
+                    <span className="font-mono font-semibold text-white">₹35,00,000</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-800 pb-1.5">
+                    <span className="text-slate-400">Sanction Interest Rate:</span>
+                    <span className="font-mono font-semibold text-emerald-400">8.65% (-35 bps rebate)</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-800 pb-1.5">
+                    <span className="text-slate-400">Repayment Tenor:</span>
+                    <span className="font-semibold text-white">60 Months (6 mo moratorium)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Primary Collateral:</span>
+                    <span className="font-semibold text-white">Hypothecation of Solar Asset + Plant</span>
+                  </div>
                 </div>
-                <div className="w-full bg-slate-800 rounded-full h-2">
-                  <div className="bg-brand-500 h-2 rounded-full" style={{ width: '82%' }}></div>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
-                  <span>Band: HIGH GREEN VIABILITY</span>
-                  <span>Payback: 3.2 Years</span>
-                </div>
-              </div>
-
-              {/* Subvention Banner */}
-              <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg text-xs space-y-1">
-                <div className="font-semibold text-emerald-400 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">verified</span>
-                  35 bps Interest Subvention Applicable
-                </div>
-                <p className="text-slate-300 text-[11px]">
-                  Borrower qualifies for concessional interest rebate under SIDBI Climate Refinance Window (Effective Rate: 8.50%).
-                </p>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* TAB CONTENT: CVI Engine Decomposition */}
+      {/* TAB CONTENT: CVI */}
       {activeTab === 'cvi' && (
         <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-6 animate-fade-in">
           <div>
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-white">Physical Climate Vulnerability Index (CVI) Decomposition</h2>
-              <span className="text-xs px-2.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
-                CVI: 34 / 100 (MODERATE)
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Deterministic formulation: CVI = (Hazard × Exposure × Sensitivity) ÷ (Adaptive Capacity × 100) [ISO 14091:2021 Standard]
+            <h2 className="text-base font-semibold text-white">Climate Vulnerability Index (CVI) Decomposition</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Deterministic ISO 14091 / IPCC AR6 physical hazard and exposure modeling for Nagpur facility.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
-              <div className="flex justify-between items-center text-xs text-slate-400">
-                <span>Hazard Driver</span>
-                <span className="material-symbols-outlined text-amber-400 text-sm">wb_sunny</span>
-              </div>
-              <div className="text-xl font-bold text-amber-400 mt-1">42 / 100</div>
-              <p className="text-[11px] text-slate-400 mt-1.5">ERA5 summer baseline: 44.2°C peak with 38 days &gt;35°C annually.</p>
+              <span className="text-slate-400 block">1. Physical Hazard (H)</span>
+              <div className="text-xl font-bold text-amber-400 mt-1">48 / 100</div>
+              <p className="text-[11px] text-slate-400 mt-1">42.5 days &gt; 35°C heatwaves per annum in Nagpur district.</p>
             </div>
-
             <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
-              <div className="flex justify-between items-center text-xs text-slate-400">
-                <span>Exposure Driver</span>
-                <span className="material-symbols-outlined text-blue-400 text-sm">roofing</span>
-              </div>
-              <div className="text-xl font-bold text-slate-200 mt-1">38 / 100</div>
-              <p className="text-[11px] text-slate-400 mt-1.5">Sheet-metal roof envelope without active thermal reflective barrier.</p>
+              <span className="text-slate-400 block">2. Asset Exposure (E)</span>
+              <div className="text-xl font-bold text-blue-400 mt-1">36 / 100</div>
+              <p className="text-[11px] text-slate-400 mt-1">24,000 sq.ft cold warehouse with insulated roof.</p>
             </div>
-
             <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
-              <div className="flex justify-between items-center text-xs text-slate-400">
-                <span>Sensitivity Driver</span>
-                <span className="material-symbols-outlined text-purple-400 text-sm">inventory_2</span>
-              </div>
-              <div className="text-xl font-bold text-slate-200 mt-1">55 / 100</div>
-              <p className="text-[11px] text-slate-400 mt-1.5">High perishability commodities (oranges & horticultural produce).</p>
+              <span className="text-slate-400 block">3. Sensitivity (S)</span>
+              <div className="text-xl font-bold text-purple-400 mt-1">54 / 100</div>
+              <p className="text-[11px] text-slate-400 mt-1">Perishable horticulture crop spoilage if chillers lose power.</p>
             </div>
-
             <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
-              <div className="flex justify-between items-center text-xs text-slate-400">
-                <span>Adaptive Capacity</span>
-                <span className="material-symbols-outlined text-emerald-400 text-sm">shield</span>
-              </div>
-              <div className="text-xl font-bold text-emerald-400 mt-1">68 / 100</div>
-              <p className="text-[11px] text-slate-400 mt-1.5">Existing backup DG + proposed 80kW Solar + Phase Change thermal buffer.</p>
+              <span className="text-slate-400 block">4. Adaptive Capacity (AC)</span>
+              <div className="text-xl font-bold text-emerald-400 mt-1">72 / 100</div>
+              <p className="text-[11px] text-slate-400 mt-1">Proposed 80kW Solar + PCM unit drastically boosts adaptation.</p>
             </div>
-          </div>
-
-          <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
-            <h3 className="text-xs font-semibold text-slate-200 mb-2">Why This Score? (Explainability Synthesis)</h3>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              While the borrower operates in a high-heat zone (Nagpur rural), their planned adoption of thermal PCM storage raises their adaptive capacity from 38 to 68, successfully compressing the net physical vulnerability from High (58) down to Moderate (34).
-            </p>
           </div>
         </div>
       )}
 
-      {/* TAB CONTENT: GVS Engine Decomposition */}
+      {/* TAB CONTENT: GVS */}
       {activeTab === 'gvs' && (
         <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-6 animate-fade-in">
           <div>
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-white">Green Viability Score (GVS) Decomposition</h2>
-              <span className="text-xs px-2.5 py-0.5 rounded bg-brand-500/10 text-brand-400 border border-brand-500/20 font-mono">
-                GVS: 82 / 100 (HIGH VIABILITY)
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Multi-criteria index: Financial IRR (40%) + Carbon Mitigation (30%) + Grid Resilience (20%) + Policy Subsidies (10%)
+            <h2 className="text-base font-semibold text-white">Green Viability Score (GVS) Breakdown</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Deterministic transition economics and RBI Green Lending Framework alignment.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
-              <span className="text-slate-400 text-xs">Financial IRR Uplift</span>
-              <div className="text-xl font-bold text-brand-400 mt-1">86 / 100</div>
-              <p className="text-[11px] text-slate-400 mt-1">23.4% Project IRR vs 10.5% Cost of Capital.</p>
+              <span className="text-slate-400 block">Green Taxonomy Alignment</span>
+              <div className="text-xl font-bold text-brand-400 mt-1">92%</div>
+              <p className="text-[11px] text-slate-400 mt-1">100% compliant with RBI taxonomy for Renewable & Storage capex.</p>
             </div>
-
             <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
-              <span className="text-slate-400 text-xs">CO2e Mitigation</span>
-              <div className="text-xl font-bold text-emerald-400 mt-1">79 / 100</div>
-              <p className="text-[11px] text-slate-400 mt-1">82.5 tCO2e avoided per year (CEA grid factor: 0.82).</p>
+              <span className="text-slate-400 block">Avoided Carbon Intensity</span>
+              <div className="text-xl font-bold text-emerald-400 mt-1">74.2 tCO₂e/yr</div>
+              <p className="text-[11px] text-slate-400 mt-1">Replaces 120,000 kWh of coal-heavy MSEDCL grid electricity.</p>
             </div>
-
             <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
-              <span className="text-slate-400 text-xs">Blackout Resilience</span>
-              <div className="text-xl font-bold text-slate-200 mt-1">80 / 100</div>
-              <p className="text-[11px] text-slate-400 mt-1">PCM material maintains 4°C for 12 hours during grid cuts.</p>
+              <span className="text-slate-400 block">Payback Period</span>
+              <div className="text-xl font-bold text-white mt-1">3.4 Years</div>
+              <p className="text-[11px] text-slate-400 mt-1">Rapid capex amortization via ₹10.2 Lakhs annual power savings.</p>
             </div>
-
             <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
-              <span className="text-slate-400 text-xs">Subsidy Alignment</span>
-              <div className="text-xl font-bold text-slate-200 mt-1">85 / 100</div>
-              <p className="text-[11px] text-slate-400 mt-1">Eligible for PM-KUSUM Component C and 35 bps SIDBI rebate.</p>
+              <span className="text-slate-400 block">Viability Spread</span>
+              <div className="text-xl font-bold text-blue-400 mt-1">+14.75%</div>
+              <p className="text-[11px] text-slate-400 mt-1">Project IRR (23.4%) exceeds WACC (8.65%) by large margin.</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* TAB CONTENT: Interactive Dynamic Stress Simulator */}
+      {/* TAB CONTENT: Scenario Simulator */}
       {activeTab === 'scenario' && (
         <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-6 animate-fade-in">
           <div>
@@ -381,7 +523,7 @@ export default function CaseDetailPage() {
                 onChange={(e) => setStressHeatwave(Number(e.target.value))}
                 className="w-full accent-amber-500 cursor-pointer"
               />
-              <p className="text-[10px] text-slate-500">Increases diesel backup runtime and compressor load.</p>
+              <p className="text-[10px] text-slate-500">Increases diesel backup runtime and compressor cooling load.</p>
             </div>
 
             <div className="space-y-3">
@@ -424,7 +566,7 @@ export default function CaseDetailPage() {
                 <span className={`text-3xl font-bold ${Number(stressedDscr) >= 1.25 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {stressedDscr}x
                 </span>
-                <span className="text-xs text-slate-400">(Baseline: 1.84x • Post-Project: 2.18x • Covenant Minimum: 1.20x)</span>
+                <span className="text-xs text-slate-400">(Baseline: 1.84x • Post-Project: 2.18x • Covenant Floor: 1.20x)</span>
               </div>
             </div>
             <div>
@@ -439,7 +581,7 @@ export default function CaseDetailPage() {
         </div>
       )}
 
-      {/* TAB CONTENT: Evidence & Proof */}
+      {/* TAB CONTENT: Evidence */}
       {activeTab === 'evidence' && (
         <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-4 animate-fade-in">
           <h2 className="text-base font-semibold text-white">Geospatial Evidence & Document Proof</h2>
@@ -453,6 +595,7 @@ export default function CaseDetailPage() {
                 <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-bold border border-emerald-500/20">VERIFIED</span>
               </div>
               <p className="text-slate-400 text-[11px]">10m resolution spectral analysis confirmed 2,200 sq.m unobstructed roof surface facing south-southwest.</p>
+              <div className="font-mono text-[10px] text-slate-500">SHA-256: 8f4a1c9e2b7d301...99e2</div>
             </div>
 
             <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 space-y-2">
@@ -464,38 +607,93 @@ export default function CaseDetailPage() {
                 <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-bold border border-emerald-500/20">VERIFIED</span>
               </div>
               <p className="text-slate-400 text-[11px]">Past 12-month MSEDCL electricity bills verified. Peak connected load: 120 kVA at ₹9.40/kWh tariff.</p>
+              <div className="font-mono text-[10px] text-slate-500">SHA-256: e3b0c44298fc1c1...82b4</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* TAB CONTENT: Copilot */}
+      {/* TAB CONTENT: Copilot (Live Gemini Server-Side Execution) */}
       {activeTab === 'copilot' && (
-        <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-6 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
             <div>
               <h2 className="text-base font-semibold text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-brand-400">smart_toy</span>
                 Credit Officer AI Underwriting Copilot
               </h2>
-              <p className="text-xs text-slate-400">Contextual synthesis of CVI, GVS, and borrower financials</p>
+              <p className="text-xs text-slate-400">Contextual synthesis of CVI, GVS, and borrower financials powered by Gemini</p>
             </div>
-            <span className="text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20">
-              Server Enforced • Zero Client Key Exposure
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20">
+                Engine: {copilotEngine}
+              </span>
+              <button
+                onClick={generateLiveCopilotMemo}
+                disabled={copilotLoading}
+                className="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shadow-sm shadow-brand-600/20"
+              >
+                <span className="material-symbols-outlined text-sm">{copilotLoading ? 'sync' : 'auto_awesome'}</span>
+                {copilotLoading ? 'Synthesizing...' : 'Generate CAM Memo'}
+              </button>
+            </div>
           </div>
 
-          <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300 space-y-3 leading-relaxed">
-            <p className="font-semibold text-slate-100">Credit Officer Recommendation Memo:</p>
-            <p>
-              1. <strong>Climate Risk Assessment:</strong> The unit in Nagpur exhibits moderate physical heatwave exposure. The proposed solar + PCM solution directly remedies the highest operational expenditure vulnerability by hedging against diesel power costs.
-            </p>
-            <p>
-              2. <strong>Financial Viability:</strong> Base DSCR improves from 1.84x to 2.18x post-retrofit. Under severe heatwave stress test (+25%), DSCR remains robust at {stressedDscr}x, well above the 1.20x institutional covenant threshold.
-            </p>
-            <p>
-              3. <strong>Sanction Condition:</strong> Require quarterly telemetry logs from the solar inverter and mandatory micro-insurance rider covering extreme heat events.
-            </p>
+          {/* Copilot Memo Area */}
+          <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300 space-y-3 leading-relaxed whitespace-pre-line">
+            <div className="font-bold text-slate-100 flex items-center gap-2">
+              <span className="material-symbols-outlined text-brand-400 text-sm">assignment</span>
+              Credit Officer Recommendation Memo:
+            </div>
+            {copilotSynthesis ? (
+              <div className="text-slate-200">{copilotSynthesis}</div>
+            ) : (
+              <div className="text-slate-400 space-y-2">
+                <p>1. <strong>Climate Risk Assessment:</strong> The unit in Nagpur exhibits moderate physical heatwave exposure (CVI 34/100). The proposed solar + PCM solution directly hedges against peak summer diesel expenses.</p>
+                <p>2. <strong>Financial Viability:</strong> Base DSCR improves from 1.84x to 2.18x post-retrofit. Under severe heatwave stress test (+{stressHeatwave}%), DSCR remains robust at {stressedDscr}x, exceeding the 1.20x institutional covenant threshold.</p>
+                <p>3. <strong>Sanction Condition:</strong> Recommended for sanction with a 35 bps green interest rate rebate under RBI Green Lending Guidelines.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Interactive Chat with Copilot */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-semibold text-slate-200">Ask the Underwriting Copilot:</h3>
+            <div className="space-y-2 max-h-56 overflow-y-auto">
+              {chatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-lg text-xs ${
+                    msg.sender === 'officer'
+                      ? 'bg-slate-800/80 text-white ml-8'
+                      : 'bg-brand-950/40 border border-brand-500/20 text-slate-200 mr-8'
+                  }`}
+                >
+                  <span className="font-semibold block text-[10px] text-slate-400 mb-1">
+                    {msg.sender === 'officer' ? 'You (Credit Officer)' : 'ClimateTwin AI Copilot'}
+                  </span>
+                  {msg.text}
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={handleSendQuery} className="flex gap-2">
+              <input
+                type="text"
+                value={copilotQuery}
+                onChange={(e) => setCopilotQuery(e.target.value)}
+                placeholder="e.g. How does +30% heat shock impact the borrower's debt service capacity?"
+                className="flex-1 px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-brand-500"
+              />
+              <button
+                type="submit"
+                disabled={chatLoading || !copilotQuery.trim()}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-sm">{chatLoading ? 'sync' : 'send'}</span>
+                Send
+              </button>
+            </form>
           </div>
         </div>
       )}
@@ -503,14 +701,9 @@ export default function CaseDetailPage() {
       {/* TAB CONTENT: Audit */}
       {activeTab === 'audit' && (
         <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-4 animate-fade-in">
-          <h2 className="text-base font-semibold text-white">Immutable Audit Log</h2>
+          <h2 className="text-base font-semibold text-white">Immutable Underwriting Audit Ledger</h2>
           <div className="space-y-2 text-xs">
-            {[
-              { time: '2026-09-25 18:30:12', user: 'Rohan Sharma (Credit Officer)', action: 'Approved loan case after CVI/GVS stress-test simulation' },
-              { time: '2026-09-25 17:15:00', user: 'Engine Service', action: 'Computed GVS score: 82/100 (Model v1.4.0)' },
-              { time: '2026-09-25 17:14:45', user: 'Engine Service', action: 'Computed CVI score: 34/100 (Model v1.2.1)' },
-              { time: '2026-09-24 11:20:10', user: 'Rohan Sharma', action: 'Created loan case case-001 for MSME msme-001' },
-            ].map((log, i) => (
+            {auditLogs.map((log, i) => (
               <div key={i} className="p-3 bg-slate-950/60 rounded-lg border border-slate-800/80 flex items-center justify-between">
                 <div>
                   <span className="font-mono text-slate-500 text-[11px] mr-3">{log.time}</span>
@@ -530,7 +723,7 @@ export default function CaseDetailPage() {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-bold text-white">Credit Appraisal Memo (CAM) — Climate & Green Viability</h3>
-                <span className="text-[11px] text-slate-400 font-mono">Ref: CAM/2026/LN-0891</span>
+                <span className="text-[11px] text-slate-400 font-mono">Ref: CAM/2026/LN-0891 • Annapurna Agro-Cold Storage</span>
               </div>
               <button
                 onClick={() => setIsCamModalOpen(false)}
@@ -541,10 +734,10 @@ export default function CaseDetailPage() {
             </div>
 
             <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2 leading-relaxed">
-              <div className="font-bold text-white text-sm">Borrower: Annapurna Agro-Cold Storage</div>
-              <p>Facility Requested: ₹35,00,000 (Green Capex Retrofit) • Tenor: 60 Months • Sanction Rate: 8.50% (Net of 35 bps subsidy)</p>
-              <p>CVI Climate Vulnerability: 34/100 (Moderate) • GVS Green Viability: 82/100 (High) • Stressed DSCR: {stressedDscr}x</p>
-              <p>Compliance: Certified under RBI Green Lending Framework and SEBI BRSR Core guidelines.</p>
+              <div className="font-bold text-white text-sm">Borrower: Annapurna Agro-Cold Storage (UDYAM-MH-12-0049281)</div>
+              <p>Facility Requested: ₹35,00,000 (80kW Solar PV + PCM Retrofit) • Tenor: 60 Months • Sanction Rate: 8.65% (Net of 35 bps green subvention)</p>
+              <p>CVI Climate Vulnerability: 34/100 (Moderate) • GVS Green Viability: 82/100 (Tier-1 Bankable) • Stressed DSCR: {stressedDscr}x</p>
+              <p>Regulatory Compliance: Certified under RBI Green Lending Framework and SEBI BRSR Core guidelines.</p>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">

@@ -75,3 +75,8 @@ coverage/
 # Playwright
 playwright-report/
 test-results/
+
+
+ui-ux-transformation-prompt.md
+project.md
+implementation-workflow.md

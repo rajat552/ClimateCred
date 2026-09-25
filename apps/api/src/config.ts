@@ -10,4 +10,5 @@ export const config = {
   aiCopilotUrl: process.env.AI_COPILOT_URL || 'http://localhost:8001',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
+  openWeatherApiKey: process.env.OPENWEATHER_API_KEY || '',
 }
