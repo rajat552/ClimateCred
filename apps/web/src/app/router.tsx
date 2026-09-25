@@ -16,6 +16,9 @@ const MsmeDetailPage = lazy(() => import('@/pages/MSMEs/MsmeDetailPage'))
 const CasesPage = lazy(() => import('@/pages/Cases/CasesPage'))
 const CaseDetailPage = lazy(() => import('@/pages/Cases/CaseDetailPage'))
 const PortfolioPage = lazy(() => import('@/pages/Portfolio/PortfolioPage'))
+const ClimateMapPage = lazy(() => import('@/pages/ClimateMap/ClimateMapPage'))
+const ModelsPage = lazy(() => import('@/pages/Models/ModelsPage'))
+const AuditPage = lazy(() => import('@/pages/Audit/AuditPage'))
 const SettingsPage = lazy(() => import('@/pages/Settings/SettingsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFound/NotFoundPage'))
 
@@ -80,7 +83,23 @@ export const router = createBrowserRouter([
             element: <S><PortfolioPage /></S>,
           },
           {
+            path: '/climate-map',
+            element: <S><ClimateMapPage /></S>,
+          },
+          {
+            path: '/models',
+            element: <S><ModelsPage /></S>,
+          },
+          {
+            path: '/audit',
+            element: <S><AuditPage /></S>,
+          },
+          {
             path: '/settings',
+            element: <S><SettingsPage /></S>,
+          },
+          {
+            path: '/impact-settings',
             element: <S><SettingsPage /></S>,
           },
         ],
